@@ -5,6 +5,7 @@ import '../widgets/parental_gate.dart';
 import 'dashboard_screen.dart';
 import 'input_screen.dart';
 import 'mandala_chart_screen.dart';
+import 'resonance_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -85,6 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Color(0xFFFFD700)),
+            tooltip: '音とたまごの共鳴',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ResonanceScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.grid_view_rounded, color: Color(0xFF7C4DFF)),
             tooltip: 'マンダラチャートMVP',
