@@ -83,6 +83,24 @@ class MandalaNotifier extends StateNotifier<MandalaState> {
     await _audio.stopAll();
     state = MandalaState.initial();
   }
+
+  // ── デバッグ専用 ──────────────────────────────────────────
+
+  /// テスト用：指定ステージ数の完了済み状態を即座に設定
+  void debugSetStage(int stage) {
+    assert(stage >= 0 && stage <= 8);
+    final completed = List<bool>.generate(8, (i) => i < stage);
+    final phase = stage == 8
+        ? ResonancePhase.hatching
+        : stage > 0
+            ? ResonancePhase.activated
+            : ResonancePhase.locked;
+    state = state.copyWith(
+      goal: 'デバッグゴール',
+      completed: completed,
+      phase: phase,
+    );
+  }
 }
 
 // ─── Providers ─────────────────────────────────────────
