@@ -1,78 +1,165 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../models/character.dart';
 import '../providers/character_providers.dart';
 import 'age_select_screen.dart';
 
-class CharacterSelectScreen extends ConsumerWidget {
+class CharacterSelectScreen extends ConsumerStatefulWidget {
   const CharacterSelectScreen({super.key});
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8E7),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            const Text('どっちと あそぶ？',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF5A4A3A)))
-                .animate().fadeIn(duration: 500.ms),
-            const SizedBox(height: 6),
-            const Text('すきなキャラクターを えらんでね！',
-                style: TextStyle(fontSize: 13, color: Color(0xFF9A8A7A)))
-                .animate().fadeIn(delay: 200.ms, duration: 500.ms),
-            const SizedBox(height: 30),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    // プピィ
-                    Expanded(child: _CharacterCard(
-                      def: puppyDef,
-                      onTap: () => _selectAndGo(context, ref, CharacterId.puppy),
-                    ).animate()
-                        .fadeIn(delay: 300.ms, duration: 500.ms)
-                        .slideX(begin: -0.15, duration: 500.ms, curve: Curves.easeOutBack)),
-                    const SizedBox(width: 14),
-                    // ガオガオ
-                    Expanded(child: _CharacterCard(
-                      def: gaogaoDef,
-                      onTap: () => _selectAndGo(context, ref, CharacterId.gaogao),
-                    ).animate()
-                        .fadeIn(delay: 450.ms, duration: 500.ms)
-                        .slideX(begin: 0.15, duration: 500.ms, curve: Curves.easeOutBack)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('※ あとからでも かえられるよ',
-                style: TextStyle(fontSize: 11, color: Colors.brown[300]))
-                .animate().fadeIn(delay: 600.ms),
-            const SizedBox(height: 24),
-          ],
-        ),
+  ConsumerState<CharacterSelectScreen> createState() => _CharacterSelectScreenState();
+}
+
+class _CharacterSelectScreenState extends ConsumerState<CharacterSelectScreen> {
+  bool _showStars = false;
+  bool _whiteOut = false;
+  Offset _starOrigin = Offset.zero;
+
+  Future<void> _selectAndGo(CharacterId id, Offset tapPosition) async {
+    HapticFeedback.heavyImpact();
+    ref.read(characterProvider.notifier).select(id);
+
+    // ピコーン音
+    try {
+      final player = AudioPlayer();
+      await player.play(AssetSource('audio/select.mp3')).catchError((_) {});
+    } catch (_) {}
+
+    // パステル星エフェクト
+    setState(() { _showStars = true; _starOrigin = tapPosition; });
+    await Future.delayed(600.ms);
+
+    // ホワイトアウト
+    if (!mounted) return;
+    setState(() => _whiteOut = true);
+    await Future.delayed(500.ms);
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const AgeSelectScreen(),
+        transitionDuration: 400.ms,
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
       ),
     );
   }
 
-  void _selectAndGo(BuildContext ctx, WidgetRef ref, CharacterId id) {
-    HapticFeedback.mediumImpact();
-    ref.read(characterProvider.notifier).select(id);
-    Navigator.of(ctx).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AgeSelectScreen()),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF8E7),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 30),
+                const Text('どっちと あそぶ？',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF5A4A3A)))
+                    .animate().fadeIn(duration: 500.ms),
+                const SizedBox(height: 6),
+                const Text('すきなキャラクターを えらんでね！',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF9A8A7A)))
+                    .animate().fadeIn(delay: 200.ms, duration: 500.ms),
+                const SizedBox(height: 30),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(child: _CharacterCard(
+                          def: puppyDef,
+                          onTapWithPosition: (pos) => _selectAndGo(CharacterId.puppy, pos),
+                        ).animate()
+                            .fadeIn(delay: 300.ms, duration: 500.ms)
+                            .slideX(begin: -0.15, duration: 500.ms, curve: Curves.easeOutBack)),
+                        const SizedBox(width: 14),
+                        Expanded(child: _CharacterCard(
+                          def: gaogaoDef,
+                          onTapWithPosition: (pos) => _selectAndGo(CharacterId.gaogao, pos),
+                        ).animate()
+                            .fadeIn(delay: 450.ms, duration: 500.ms)
+                            .slideX(begin: 0.15, duration: 500.ms, curve: Curves.easeOutBack)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('※ あとからでも かえられるよ',
+                    style: TextStyle(fontSize: 11, color: Colors.brown[300]))
+                    .animate().fadeIn(delay: 600.ms),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+          // パステル星エフェクト
+          if (_showStars) _PastelStarBurst(origin: _starOrigin),
+          // ホワイトアウト
+          if (_whiteOut)
+            AnimatedContainer(
+              duration: 500.ms,
+              color: Colors.white,
+            ).animate().fadeIn(duration: 500.ms),
+        ],
+      ),
     );
   }
 }
 
+// ── パステル星バースト ──────────────────────────────────
+
+class _PastelStarBurst extends StatelessWidget {
+  final Offset origin;
+  const _PastelStarBurst({required this.origin});
+
+  static const _starEmojis = ['⭐', '✨', '🌟', '💫', '⭐', '✨', '🌟', '💫', '⭐', '✨', '🌟', '💫'];
+  static const _colors = [
+    Color(0xFFFFB3DE), Color(0xFFFFCC80), Color(0xFF81D4FA),
+    Color(0xFFC5E1A5), Color(0xFFCE93D8), Color(0xFFFFF176),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final rng = math.Random(42);
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: List.generate(12, (i) {
+            final angle = i * math.pi * 2 / 12 + rng.nextDouble() * 0.3;
+            final dist = 80.0 + rng.nextDouble() * 80;
+            return Positioned(
+              left: origin.dx - 10,
+              top: origin.dy - 10,
+              child: Text(_starEmojis[i],
+                  style: TextStyle(fontSize: 16 + rng.nextDouble() * 14,
+                      color: _colors[i % _colors.length]))
+                  .animate()
+                  .move(begin: Offset.zero,
+                      end: Offset(math.cos(angle) * dist, math.sin(angle) * dist),
+                      duration: 700.ms, delay: Duration(milliseconds: i * 30),
+                      curve: Curves.easeOut)
+                  .scaleXY(begin: 0.3, end: 1.2, duration: 400.ms)
+                  .then()
+                  .fadeOut(duration: 300.ms),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+// ── キャラカード ─────────────────────────────────────────
+
 class _CharacterCard extends StatefulWidget {
   final CharacterDef def;
-  final VoidCallback onTap;
-  const _CharacterCard({required this.def, required this.onTap});
+  final void Function(Offset tapPosition) onTapWithPosition;
+  const _CharacterCard({required this.def, required this.onTapWithPosition});
   @override
   State<_CharacterCard> createState() => _CharacterCardState();
 }
@@ -100,8 +187,10 @@ class _CharacterCardState extends State<_CharacterCard>
   Widget build(BuildContext context) {
     final d = widget.def;
     return GestureDetector(
-      onTapDown: (_) => _ctrl.forward(from: 0),
-      onTap: widget.onTap,
+      onTapDown: (details) {
+        _ctrl.forward(from: 0);
+        widget.onTapWithPosition(details.globalPosition);
+      },
       child: AnimatedBuilder(
         animation: _scale,
         builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
