@@ -1,109 +1,147 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/mandala_state.dart';
+import '../models/activity_log.dart';
 import '../services/audio_mixer_service.dart';
-
-// ─────────────────────────────────────────────────────────
-// MandalaNotifier — 状態遷移とオーディオミキサーを統合
-// ─────────────────────────────────────────────────────────
+import '../services/suggestion_service.dart';
 
 class MandalaNotifier extends StateNotifier<MandalaState> {
   final AudioMixerService _audio;
 
   MandalaNotifier(this._audio) : super(MandalaState.initial());
 
-  // ── ゴール設定 → locked → activated ────────────────────
+  void setAge(AgeMode mode) {
+    state = MandalaState.initial(mode: mode);
+  }
 
   void activate(String goal) {
     if (goal.trim().isEmpty) return;
+    final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
+    final labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
     state = state.copyWith(
       goal: goal.trim(),
+      labels: labels,
       phase: ResonancePhase.activated,
+      sessionStart: DateTime.now(),
     );
   }
 
-  /// activated 中にゴール文字列だけ更新
   void updateGoal(String goal) {
     if (goal.trim().isEmpty) return;
-    state = state.copyWith(goal: goal.trim());
+    // Observer: ゴール変更 → 未完了セルのラベルを自動書き換え
+    final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
+    final labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
+    state = state.copyWith(goal: goal.trim(), labels: labels);
   }
 
-  // ── セル操作 ────────────────────────────────────────────
+  /// 完了済みセルのラベルは保持し、未完了セルだけAI候補で上書き
+  List<String> _mergeLabels(List<String> current, List<String> suggestions, int active) {
+    final merged = List<String>.from(current);
+    for (int i = 0; i < active && i < suggestions.length; i++) {
+      if (!state.completed[i]) merged[i] = suggestions[i];
+    }
+    return merged;
+  }
 
-  /// セルを完了にする（index: 0〜7）
   Future<void> completeCell(int index, {String? label}) async {
     if (state.phase != ResonancePhase.activated) return;
     if (state.completed[index]) return;
+
+    final enteredLabel = (label != null && label.isNotEmpty) ? label : state.labels[index];
+    final isCustomized = enteredLabel != state.ageMode.defaultLabels[index];
+    final elapsed = state.sessionStart != null
+        ? DateTime.now().difference(state.sessionStart!)
+        : Duration.zero;
+
+    final event = CellCompletionEvent(
+      cellIndex: index,
+      completedAt: DateTime.now(),
+      enteredLabel: enteredLabel,
+      labelCustomized: isCustomized,
+      elapsedSinceStart: elapsed,
+    );
 
     final newCompleted = List<bool>.from(state.completed)..[index] = true;
     final newLabels = label != null && label.isNotEmpty
         ? (List<String>.from(state.labels)..[index] = label)
         : state.labels;
+    final newLogs = [...state.logs, event];
 
-    state = state.copyWith(completed: newCompleted, labels: newLabels);
+    state = state.copyWith(
+      completed: newCompleted,
+      labels: newLabels,
+      logs: newLogs,
+    );
 
-    // その楽器トラックを ON
     await _audio.enableTrack(index);
-
-    // 全完了 → 孵化へ
-    if (state.isAllDone) {
-      await _startHatching();
-    }
+    if (state.isAllDone) await _startHatching();
   }
 
-  /// セルを未完了に戻す
   Future<void> resetCell(int index) async {
     if (!state.completed[index]) return;
     final newCompleted = List<bool>.from(state.completed)..[index] = false;
-
-    // 孵化済みなら activated へ戻す
-    final newPhase = state.phase == ResonancePhase.hatched ||
-            state.phase == ResonancePhase.hatching
+    final newPhase = (state.phase == ResonancePhase.hatched || state.phase == ResonancePhase.hatching)
         ? ResonancePhase.activated
         : state.phase;
-
     state = state.copyWith(completed: newCompleted, phase: newPhase);
     await _audio.disableTrack(index);
   }
-
-  // ── 孵化フロー ───────────────────────────────────────────
 
   Future<void> _startHatching() async {
     state = state.copyWith(phase: ResonancePhase.hatching);
     await _audio.playOrchestra();
   }
 
-  /// hatching アニメーション完了後に呼ぶ
   void onHatchAnimationDone() {
     state = state.copyWith(phase: ResonancePhase.hatched);
   }
 
-  // ── リセット ─────────────────────────────────────────────
+  /// ステージクリア → 次のステージへ自動移行
+  Future<void> advanceStage() async {
+    await _audio.stopAll();
+    final nextStage = state.currentStage + 1;
+    final cleared = state.totalClearedStages + 1;
+    state = MandalaState.initial(
+      mode: state.ageMode,
+      stage: nextStage,
+      cleared: cleared,
+    );
+  }
 
   Future<void> reset() async {
     await _audio.stopAll();
-    state = MandalaState.initial();
+    state = MandalaState.initial(mode: state.ageMode,
+        stage: state.currentStage, cleared: state.totalClearedStages);
   }
 
-  // ── デバッグ専用 ──────────────────────────────────────────
-
-  /// テスト用：指定ステージ数の完了済み状態を即座に設定
   void debugSetStage(int stage) {
     assert(stage >= 0 && stage <= 8);
-    final completed = List<bool>.generate(8, (i) => i < stage);
-    final phase = stage == 8
-        ? ResonancePhase.hatching
-        : stage > 0
-            ? ResonancePhase.activated
-            : ResonancePhase.locked;
+    const debugGoal = 'どうぶつえん';
+    final active = state.ageMode.activeCells;
+    final clampedStage = stage.clamp(0, active);
+    final completed = List<bool>.generate(8, (i) => i < clampedStage);
+    final phase = clampedStage == active
+        ? ResonancePhase.hatched
+        : clampedStage > 0 ? ResonancePhase.activated : ResonancePhase.locked;
+    // Observer: ゴールからラベルを自動生成
+    final suggestions = SuggestionService.getLocalSuggestions(debugGoal);
+    final labels = List.generate(8, (i) => i < suggestions.length ? suggestions[i] : '');
     state = state.copyWith(
-      goal: 'デバッグゴール',
+      goal: debugGoal,
       completed: completed,
+      labels: labels,
       phase: phase,
+      logs: List.generate(clampedStage, (i) => CellCompletionEvent(
+        cellIndex: i,
+        completedAt: DateTime.now().subtract(Duration(seconds: (clampedStage - i) * 45)),
+        enteredLabel: i < suggestions.length ? suggestions[i] : '',
+        labelCustomized: false,
+        elapsedSinceStart: Duration(seconds: i * 45),
+      )),
     );
   }
 }
 
-// ─── Providers ─────────────────────────────────────────
+// ─── Providers ─────────────────────────────────────────────
 
 final audioMixerProvider = Provider<AudioMixerService>((ref) {
   final service = AudioMixerService();
@@ -111,8 +149,16 @@ final audioMixerProvider = Provider<AudioMixerService>((ref) {
   return service;
 });
 
-final mandalaProvider =
-    StateNotifierProvider<MandalaNotifier, MandalaState>((ref) {
+final mandalaProvider = StateNotifierProvider<MandalaNotifier, MandalaState>((ref) {
   final audio = ref.watch(audioMixerProvider);
   return MandalaNotifier(audio);
+});
+
+final analyticsProvider = Provider((ref) {
+  final s = ref.watch(mandalaProvider);
+  return (
+    metacognition: s.metacognitionScore,
+    focus: s.focusScore,
+    logicalThinking: s.logicalThinkingScore,
+  );
 });

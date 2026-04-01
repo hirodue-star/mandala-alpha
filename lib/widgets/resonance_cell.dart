@@ -32,7 +32,7 @@ class ResonanceCell extends StatelessWidget {
   //              3=右下(バイオリン) 4=下(ドラム) 5=左下(トランペット)
   //              6=左(ギター) 7=左上(マリンバ)
 
-  static const List<Color> _baseColors = [
+  static const List<Color> baseColors = [
     Color(0xFF0D1F33), // ピアノ    : ダークネイビー
     Color(0xFF1A0D33), // チェロ    : ダークパープル
     Color(0xFF0D2918), // フルート  : ダークグリーン
@@ -43,7 +43,7 @@ class ResonanceCell extends StatelessWidget {
     Color(0xFF002828), // マリンバ  : ダークティール
   ];
 
-  static const List<Color> _neonAccents = [
+  static const List<Color> neonAccents = [
     Color(0xFF40C4FF), // ピアノ    : ネオン水色
     Color(0xFFCE93D8), // チェロ    : ネオン紫
     Color(0xFF69F0AE), // フルート  : ネオンミント
@@ -54,18 +54,18 @@ class ResonanceCell extends StatelessWidget {
     Color(0xFF18FFFF), // マリンバ  : ネオンシアン
   ];
 
-  static const List<String> _instrumentEmojis = [
+  static const List<String> instrumentEmojis = [
     '🎹', '🎻', '🎵', '🎸', '🥁', '🎺', '🎸', '🎼',
   ];
 
-  static const List<String> _instrumentNames = [
+  static const List<String> instrumentNames = [
     'ピアノ', 'チェロ', 'フルート', 'バイオリン',
     'ドラム', 'トランペット', 'ギター', 'マリンバ',
   ];
 
   bool get _isLocked => phase == ResonancePhase.locked;
-  Color get _accent => _neonAccents[cellIndex % _neonAccents.length];
-  Color get _base => _baseColors[cellIndex % _baseColors.length];
+  Color get _accent => neonAccents[cellIndex % neonAccents.length];
+  Color get _base => baseColors[cellIndex % baseColors.length];
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +119,7 @@ class ResonanceCell extends StatelessWidget {
               opacity: _isLocked ? 0.18 : 1.0,
               duration: 400.ms,
               child: Text(
-                _instrumentEmojis[cellIndex % _instrumentEmojis.length],
+                instrumentEmojis[cellIndex % instrumentEmojis.length],
                 style: const TextStyle(fontSize: 22),
               ),
             ),
@@ -132,7 +132,7 @@ class ResonanceCell extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: Text(
                   completed
-                      ? _instrumentNames[cellIndex % _instrumentNames.length]
+                      ? instrumentNames[cellIndex % instrumentNames.length]
                       : label,
                   style: TextStyle(
                     fontSize: 9,

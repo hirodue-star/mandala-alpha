@@ -1,0 +1,7 @@
+WEB_SERVER_PID=33289
+COMMANDER_PID=33290
+
+# 停止方法:
+# kill $(cat tmp/server_pids.txt | grep PID | cut -d= -f2)
+# または:
+# kill 33289 33290

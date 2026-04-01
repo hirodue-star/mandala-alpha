@@ -1,22 +1,53 @@
 import 'package:flutter/foundation.dart';
+import 'activity_log.dart';
 
 // ─────────────────────────────────────────────────────────
-// MandalaState — 不変状態クラス（Riverpod StateNotifier用）
+// AgeMode — 年齢別グリッドモード
 // ─────────────────────────────────────────────────────────
 
-enum ResonancePhase {
-  /// 起動直後：中央たまごのみ、周囲マスはロック
-  locked,
-
-  /// ゴール設定済み：周囲マスを操作可能
-  activated,
-
-  /// 孵化エフェクト再生中
-  hatching,
-
-  /// 孵化完了：ひよこ表示・フルオーケストラ
-  hatched,
+enum AgeMode {
+  age3, // 4マス（中心1＋周囲3）語彙「発見」
+  age4, // 6マス（中心1＋周囲5）関連性「連結」
+  age5, // 9マス（中心1＋周囲8）論理的「分類」
 }
+
+extension AgeModeExt on AgeMode {
+  int get activeCells => switch (this) { AgeMode.age3 => 3, AgeMode.age4 => 5, AgeMode.age5 => 8 };
+  String get label => switch (this) { AgeMode.age3 => '3さい', AgeMode.age4 => '4さい', AgeMode.age5 => '5さい' };
+  String get centerLabel => switch (this) {
+    AgeMode.age3 => 'きょうの だいすき',
+    AgeMode.age4 => 'きょうの すき',
+    AgeMode.age5 => 'きょうの テーマ',
+  };
+  String get coachingPrompt => switch (this) {
+    AgeMode.age3 => 'の どんなところが すき？',
+    AgeMode.age4 => 'について おしえて！',
+    AgeMode.age5 => 'に ついて かんがえよう！',
+  };
+
+  // gridMap: null=center(puppy), -1=empty slot, 0〜7=action cell index
+  List<int?> get gridMap => switch (this) {
+    AgeMode.age3 => const [-1,  0, -1,  1, null,  2, -1, -1, -1],
+    AgeMode.age4 => const [-1,  0,  1,  4, null,  2, -1,  3, -1],
+    AgeMode.age5 => const [ 7,  0,  1,  6, null,  2,  5,  4,  3],
+  };
+
+  List<String> get defaultLabels => switch (this) {
+    AgeMode.age3 => ['', '', '', '', '', '', '', ''],
+    AgeMode.age4 => ['', '', '', '', '', '', '', ''],
+    AgeMode.age5 => ['', '', '', '', '', '', '', ''],
+  };
+}
+
+// ─────────────────────────────────────────────────────────
+// ResonancePhase
+// ─────────────────────────────────────────────────────────
+
+enum ResonancePhase { locked, activated, hatching, hatched }
+
+// ─────────────────────────────────────────────────────────
+// MandalaState
+// ─────────────────────────────────────────────────────────
 
 @immutable
 class MandalaState {
@@ -24,44 +55,90 @@ class MandalaState {
   final List<String> labels;
   final List<bool> completed;
   final ResonancePhase phase;
+  final List<CellCompletionEvent> logs;
+  final DateTime? sessionStart;
+  final AgeMode ageMode;
+  final int currentStage;       // 現在のステージ番号（1始まり）
+  final int totalClearedStages; // 累計クリア数
 
   const MandalaState({
     required this.goal,
     required this.labels,
     required this.completed,
     required this.phase,
+    required this.logs,
+    required this.ageMode,
+    this.sessionStart,
+    this.currentStage = 1,
+    this.totalClearedStages = 0,
   });
 
-  factory MandalaState.initial() => MandalaState(
+  factory MandalaState.initial({AgeMode mode = AgeMode.age5, int stage = 1, int cleared = 0}) =>
+      MandalaState(
         goal: '',
-        labels: const [
-          'アクション①', 'アクション②', 'アクション③', 'アクション④',
-          'アクション⑤', 'アクション⑥', 'アクション⑦', 'アクション⑧',
-        ],
+        labels: mode.defaultLabels,
         completed: List.filled(8, false),
         phase: ResonancePhase.locked,
+        logs: const [],
+        ageMode: mode,
+        currentStage: stage,
+        totalClearedStages: cleared,
       );
 
-  /// 完了数 0〜8
-  int get doneCount => completed.where((c) => c).length;
+  int get activeCellCount => ageMode.activeCells;
+  int get doneCount => completed.take(activeCellCount).where((c) => c).length;
+  bool get isAllDone => doneCount == activeCellCount;
+  int get eggStage => (doneCount * 8 / activeCellCount).round().clamp(0, 8);
 
-  /// 全完了フラグ
-  bool get isAllDone => doneCount == 8;
+  // ── スコア ─────────────────────────────────────────────
 
-  /// たまごの進化ステージ 0〜8（doneCount と同値）
-  int get eggStage => doneCount;
+  double get metacognitionScore {
+    if (logs.isEmpty) return 0;
+    final custom = logs.where((e) => e.labelCustomized).length;
+    return custom / logs.length;
+  }
+
+  double get focusScore {
+    if (logs.length < 2) return 0;
+    final intervals = <Duration>[];
+    for (int i = 1; i < logs.length; i++) {
+      intervals.add(logs[i].elapsedSinceStart - logs[i - 1].elapsedSinceStart);
+    }
+    final avgMs = intervals.map((d) => d.inMilliseconds).reduce((a, b) => a + b) / intervals.length;
+    return (1.0 - ((avgMs - 30000) / (300000 - 30000))).clamp(0.0, 1.0);
+  }
+
+  double get logicalThinkingScore {
+    if (logs.length < 3) return 0;
+    int sequential = 0;
+    for (int i = 1; i < logs.length; i++) {
+      final diff = (logs[i].cellIndex - logs[i - 1].cellIndex).abs();
+      if (diff == 1 || diff == 7) sequential++;
+    }
+    return sequential / (logs.length - 1).toDouble();
+  }
 
   MandalaState copyWith({
     String? goal,
     List<String>? labels,
     List<bool>? completed,
     ResonancePhase? phase,
+    List<CellCompletionEvent>? logs,
+    DateTime? sessionStart,
+    AgeMode? ageMode,
+    int? currentStage,
+    int? totalClearedStages,
   }) {
     return MandalaState(
       goal: goal ?? this.goal,
       labels: labels ?? this.labels,
       completed: completed ?? this.completed,
       phase: phase ?? this.phase,
+      logs: logs ?? this.logs,
+      sessionStart: sessionStart ?? this.sessionStart,
+      ageMode: ageMode ?? this.ageMode,
+      currentStage: currentStage ?? this.currentStage,
+      totalClearedStages: totalClearedStages ?? this.totalClearedStages,
     );
   }
 
@@ -71,9 +148,13 @@ class MandalaState {
       other.goal == goal &&
       listEquals(other.labels, labels) &&
       listEquals(other.completed, completed) &&
-      other.phase == phase;
+      other.phase == phase &&
+      listEquals(other.logs, logs) &&
+      other.ageMode == ageMode &&
+      other.currentStage == currentStage;
 
   @override
   int get hashCode =>
-      Object.hash(goal, Object.hashAll(labels), Object.hashAll(completed), phase);
+      Object.hash(goal, Object.hashAll(labels), Object.hashAll(completed),
+          phase, logs.length, ageMode, currentStage);
 }
