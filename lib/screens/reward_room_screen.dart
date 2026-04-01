@@ -5,6 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/character_providers.dart';
 import '../models/character.dart';
+import '../models/mandala_state.dart';
+import '../widgets/puppy_character.dart';
+import '../widgets/gaogao_character.dart';
 import 'character_select_screen.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -261,8 +264,12 @@ class _ThankYouCutscene extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/images/${charDef.id.name}.png', width: 120, height: 120)
-                  .animate()
+              SizedBox(
+                width: 120, height: 130,
+                child: charDef.id == CharacterId.puppy
+                    ? const PuppyCharacter(stage: 0, phase: ResonancePhase.locked)
+                    : const GaogaoCharacter(stage: 0, phase: ResonancePhase.locked),
+              ).animate()
                   .scaleXY(begin: 0.1, end: 1.0, duration: 600.ms, curve: Curves.elasticOut)
                   .then()
                   .scaleXY(end: 1.05, duration: 400.ms)
@@ -346,12 +353,12 @@ class _RoomView extends StatelessWidget {
                   bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22))),
             ),
           ),
-          // キャラクター（パステルアニメ調画像）
+          // キャラクター（マンダラ中央と同じCustomPaint描画）
           Positioned(
-            bottom: 30,
-            child: Image.asset('assets/images/${charDef.id.name}.png', width: 80, height: 80)
-                .animate(onPlay: (c) => c.repeat(reverse: true))
-                .moveY(begin: 0, end: -6, duration: 1200.ms),
+            bottom: 24,
+            child: charDef.id == CharacterId.puppy
+                ? const PuppyCharacter(stage: 0, phase: ResonancePhase.locked)
+                : const GaogaoCharacter(stage: 0, phase: ResonancePhase.locked),
           ),
           // 家具
           for (final item in _furniture)
