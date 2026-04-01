@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/character_providers.dart';
+import '../models/character.dart';
+import 'character_select_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // RewardRoomScreen — プピィの部屋デコ＋カレンダー
@@ -108,6 +111,7 @@ class _RewardRoomScreenState extends ConsumerState<RewardRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final reward = ref.watch(rewardProvider);
+    final charDef = ref.watch(characterProvider).def;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8E7),
@@ -117,24 +121,36 @@ class _RewardRoomScreenState extends ConsumerState<RewardRoomScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF8A7A6A)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('プピィのおへや',
-            style: TextStyle(color: Color(0xFF5A4A3A), fontWeight: FontWeight.bold, fontSize: 17)),
+        title: Text('${charDef.name}のおへや',
+            style: const TextStyle(color: Color(0xFF5A4A3A), fontWeight: FontWeight.bold, fontSize: 17)),
         actions: [
+          // おうちボタン（スタート画面に戻る）
+          GestureDetector(
+            onTap: () => Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const CharacterSelectScreen()),
+              (_) => false,
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF0D0), shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE0D0B0))),
+              child: const Text('🏠', style: TextStyle(fontSize: 14)),
+            ),
+          ),
+          // どんぐりカウンター
           Container(
             margin: const EdgeInsets.only(right: 14),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE8B0), borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🌰', style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 4),
-                Text('${reward.acorns}', style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF6B4E2A))),
-              ],
-            ),
+              color: const Color(0xFFFFE8B0), borderRadius: BorderRadius.circular(16)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Text('🌰', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 4),
+              Text('${reward.acorns}', style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF6B4E2A))),
+            ]),
           ),
         ],
       ),
@@ -142,7 +158,7 @@ class _RewardRoomScreenState extends ConsumerState<RewardRoomScreen> {
         children: [
           Column(
             children: [
-              Expanded(flex: 5, child: _RoomView(unlocked: reward.unlockedItems)),
+              Expanded(flex: 5, child: _RoomView(unlocked: reward.unlockedItems, charDef: charDef)),
               _StampCalendar(stamps: reward.stampDates),
               const SizedBox(height: 8),
               Expanded(flex: 4, child: _Shop(
@@ -156,7 +172,7 @@ class _RewardRoomScreenState extends ConsumerState<RewardRoomScreen> {
             _AcornBounceOverlay(key: ValueKey(_acornBounceTrigger)),
           // ありがとうカットイン
           if (_showThankYou)
-            _ThankYouCutscene(itemEmoji: _boughtItemEmoji),
+            _ThankYouCutscene(itemEmoji: _boughtItemEmoji, charDef: charDef),
         ],
       ),
     );
@@ -209,7 +225,8 @@ class _AcornBounceOverlay extends StatelessWidget {
 
 class _ThankYouCutscene extends StatelessWidget {
   final String itemEmoji;
-  const _ThankYouCutscene({required this.itemEmoji});
+  final CharacterDef charDef;
+  const _ThankYouCutscene({required this.itemEmoji, required this.charDef});
 
   @override
   Widget build(BuildContext context) {
@@ -240,11 +257,11 @@ class _ThankYouCutscene extends StatelessWidget {
                   .scaleXY(begin: 0.3, end: 1.2, duration: 600.ms),
             ),
 
-          // プピィ大ズームアップ
+          // キャラ大ズームアップ
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('🐰', style: TextStyle(fontSize: 100))
+              Image.asset('assets/images/${charDef.id.name}.png', width: 120, height: 120)
                   .animate()
                   .scaleXY(begin: 0.1, end: 1.0, duration: 600.ms, curve: Curves.elasticOut)
                   .then()
@@ -288,43 +305,55 @@ class _ThankYouCutscene extends StatelessWidget {
 
 class _RoomView extends StatelessWidget {
   final Set<int> unlocked;
-  const _RoomView({required this.unlocked});
+  final CharacterDef charDef;
+  const _RoomView({required this.unlocked, required this.charDef});
 
   @override
   Widget build(BuildContext context) {
+    // キャラ別の部屋カラー
+    final isPuppy = charDef.id == CharacterId.puppy;
+    final wallColor = isPuppy ? const Color(0xFFFFF0F5) : const Color(0xFFF1F8E9);
+    final floorColor = isPuppy ? const Color(0xFFFFD6E8) : const Color(0xFFC8E6C9);
+    final borderColor = isPuppy ? const Color(0xFFFFB3DE) : const Color(0xFF81C784);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF0D4),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [wallColor, wallColor.withOpacity(0.7)]),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE8D5B5), width: 2),
+        border: Border.all(color: borderColor.withOpacity(0.5), width: 2),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // パステル水彩ドット壁紙
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
-              child: CustomPaint(painter: _DotWallpaperPainter()),
+              child: CustomPaint(painter: _PastelWallpaperPainter(isPuppy: isPuppy)),
             ),
           ),
+          // 床
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Container(
               height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8CFA0),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22)),
-              ),
+              decoration: BoxDecoration(
+                color: floorColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22))),
             ),
           ),
+          // キャラクター（パステルアニメ調画像）
           Positioned(
-            bottom: 38,
-            child: const Text('🐰', style: TextStyle(fontSize: 52))
+            bottom: 30,
+            child: Image.asset('assets/images/${charDef.id.name}.png', width: 80, height: 80)
                 .animate(onPlay: (c) => c.repeat(reverse: true))
                 .moveY(begin: 0, end: -6, duration: 1200.ms),
           ),
+          // 家具
           for (final item in _furniture)
             if (unlocked.contains(item.id))
               Positioned(
@@ -339,16 +368,39 @@ class _RoomView extends StatelessWidget {
   }
 }
 
-class _DotWallpaperPainter extends CustomPainter {
+class _PastelWallpaperPainter extends CustomPainter {
+  final bool isPuppy;
+  _PastelWallpaperPainter({required this.isPuppy});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFFFE8C0).withOpacity(0.5);
-    for (double x = 10; x < size.width; x += 24) {
-      for (double y = 10; y < size.height - 50; y += 24) {
-        canvas.drawCircle(Offset(x, y), 2.5, paint);
+    final rng = math.Random(42);
+    // パステル水彩ドット
+    final colors = isPuppy
+        ? [const Color(0xFFFFD6E8), const Color(0xFFFFB3DE), const Color(0xFFFFF0F5)]
+        : [const Color(0xFFC8E6C9), const Color(0xFF81C784), const Color(0xFFE8F5E9)];
+
+    for (double x = 12; x < size.width; x += 28) {
+      for (double y = 12; y < size.height - 50; y += 28) {
+        final c = colors[rng.nextInt(colors.length)];
+        canvas.drawCircle(Offset(x + rng.nextDouble() * 6, y + rng.nextDouble() * 6),
+            2 + rng.nextDouble() * 2,
+            Paint()..color = c.withOpacity(0.3 + rng.nextDouble() * 0.2)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
       }
     }
+
+    // 水彩風の大きなにじみ
+    for (int i = 0; i < 5; i++) {
+      canvas.drawCircle(
+        Offset(rng.nextDouble() * size.width, rng.nextDouble() * (size.height - 60)),
+        20 + rng.nextDouble() * 30,
+        Paint()..color = colors[i % colors.length].withOpacity(0.08)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15),
+      );
+    }
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
