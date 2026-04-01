@@ -353,12 +353,17 @@ class _RoomView extends StatelessWidget {
                   bottomLeft: Radius.circular(22), bottomRight: Radius.circular(22))),
             ),
           ),
-          // キャラクター（マンダラ中央と同じCustomPaint描画）
+          // キャラクター（マンダラ中央と同じCustomPaint — 大きく表示）
           Positioned(
-            bottom: 24,
-            child: charDef.id == CharacterId.puppy
-                ? const PuppyCharacter(stage: 0, phase: ResonancePhase.locked)
-                : const GaogaoCharacter(stage: 0, phase: ResonancePhase.locked),
+            bottom: 18,
+            child: SizedBox(
+              width: 110, height: 120,
+              child: FittedBox(
+                child: charDef.id == CharacterId.puppy
+                    ? const PuppyCharacter(stage: 0, phase: ResonancePhase.activated)
+                    : const GaogaoCharacter(stage: 0, phase: ResonancePhase.activated),
+              ),
+            ),
           ),
           // 家具
           for (final item in _furniture)
