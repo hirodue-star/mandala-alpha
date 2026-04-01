@@ -13,6 +13,7 @@ import '../providers/context_providers.dart';
 import '../providers/suggestion_providers.dart';
 import '../services/suggestion_service.dart';
 import 'parent_gate_screen.dart';
+import 'character_select_screen.dart';
 import 'parent_dashboard_screen.dart';
 import 'reward_room_screen.dart';
 import 'gacha_screen.dart';
@@ -632,8 +633,22 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
+          // スタート画面に戻る
+          GestureDetector(
+            onTap: () => Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const CharacterSelectScreen()),
+              (_) => false),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0EBE0), shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFD0C8B8))),
+              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: Color(0xFF8A7A6A)),
+            ),
+          ),
+          const SizedBox(width: 6),
           const Text('🐰', style: TextStyle(fontSize: 22)),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(AppStrings.current.characterName, style: const TextStyle(
             color: Color(0xFF5A4A3A), fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
           const SizedBox(width: 6),
