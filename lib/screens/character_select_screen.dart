@@ -121,7 +121,7 @@ class _CharacterCardState extends State<_CharacterCard>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // キャラクター
-              Text(d.emoji, style: const TextStyle(fontSize: 72))
+              Image.asset('assets/images/${d.id.name}.png', height: 120, width: 120)
                   .animate(onPlay: (c) => c.repeat(reverse: true))
                   .scaleXY(end: 1.08, duration: 1200.ms)
                   .moveY(begin: 0, end: -6, duration: 1200.ms),
