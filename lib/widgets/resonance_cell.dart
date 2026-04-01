@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/mandala_state.dart';
-import '../services/audio_mixer_service.dart';
 
 // ─────────────────────────────────────────────────────────
-// ResonanceCell — 共鳴マスWidget
-// 完了時に金色発光 + 楽器名ラベルを表示
+// ResonanceCell v2 — 楽器別ネオンカラー + Dark Navy
+//
+// 各マスに楽器固有のネオンパステルカラーを割り当て。
+// 完了時は同色のグロー発光。
 // ─────────────────────────────────────────────────────────
 
 class ResonanceCell extends StatelessWidget {
-  final int cellIndex;      // 0〜7
+  final int cellIndex;
   final String label;
   final bool completed;
   final ResonancePhase phase;
@@ -26,90 +27,119 @@ class ResonanceCell extends StatelessWidget {
     required this.onTap,
   });
 
-  // 8マスの色テーマ
-  static const List<Color> _cellColors = [
-    Color(0xFFE3F2FD), // 上    : 水色
-    Color(0xFFF3E5F5), // 右上  : 薄紫
-    Color(0xFFE8F5E9), // 右    : 薄緑
-    Color(0xFFFFF8E1), // 右下  : 薄黄
-    Color(0xFFFFEBEE), // 下    : 薄赤
-    Color(0xFFFBE9E7), // 左下  : 薄オレンジ
-    Color(0xFFE0F7FA), // 左    : 薄シアン
-    Color(0xFFF1F8E9), // 左上  : 薄ライム
+  // ── 楽器別カラー定義 ────────────────────────────────────
+  // インデックス: 0=上(ピアノ) 1=右上(チェロ) 2=右(フルート)
+  //              3=右下(バイオリン) 4=下(ドラム) 5=左下(トランペット)
+  //              6=左(ギター) 7=左上(マリンバ)
+
+  static const List<Color> _baseColors = [
+    Color(0xFF0D1F33), // ピアノ    : ダークネイビー
+    Color(0xFF1A0D33), // チェロ    : ダークパープル
+    Color(0xFF0D2918), // フルート  : ダークグリーン
+    Color(0xFF2A1E00), // バイオリン: ダークアンバー
+    Color(0xFF2A0A0A), // ドラム    : ダークレッド
+    Color(0xFF2A1200), // トランペット:ダークオレンジ
+    Color(0xFF152800), // ギター    : ダークライム
+    Color(0xFF002828), // マリンバ  : ダークティール
   ];
 
-  static const List<Color> _doneColors = [
-    Color(0xFFFFD700), // 完了は全セル金色
+  static const List<Color> _neonAccents = [
+    Color(0xFF40C4FF), // ピアノ    : ネオン水色
+    Color(0xFFCE93D8), // チェロ    : ネオン紫
+    Color(0xFF69F0AE), // フルート  : ネオンミント
+    Color(0xFFFFD740), // バイオリン: ネオン黄
+    Color(0xFFFF5252), // ドラム    : ネオンレッド
+    Color(0xFFFF6D00), // トランペット:ネオンオレンジ
+    Color(0xFF76FF03), // ギター    : ネオンライム
+    Color(0xFF18FFFF), // マリンバ  : ネオンシアン
+  ];
+
+  static const List<String> _instrumentEmojis = [
+    '🎹', '🎻', '🎵', '🎸', '🥁', '🎺', '🎸', '🎼',
+  ];
+
+  static const List<String> _instrumentNames = [
+    'ピアノ', 'チェロ', 'フルート', 'バイオリン',
+    'ドラム', 'トランペット', 'ギター', 'マリンバ',
   ];
 
   bool get _isLocked => phase == ResonancePhase.locked;
-
-  Color get _bgColor {
-    if (_isLocked) return const Color(0xFFEEEEEE);
-    if (completed) return const Color(0xFFFFD700);
-    return _cellColors[cellIndex % _cellColors.length];
-  }
+  Color get _accent => _neonAccents[cellIndex % _neonAccents.length];
+  Color get _base => _baseColors[cellIndex % _baseColors.length];
 
   @override
   Widget build(BuildContext context) {
     Widget cell = GestureDetector(
       onTap: _isLocked ? null : onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 350),
+        duration: 350.ms,
         decoration: BoxDecoration(
-          color: _bgColor,
+          color: _isLocked
+              ? const Color(0xFF111111)
+              : completed
+                  ? _base.withRed((_base.red + 20).clamp(0, 255))
+                  : _base,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: completed
-                ? const Color(0xFFFFD700)
-                : _isLocked
-                    ? Colors.grey.shade300
-                    : _cellColors[cellIndex % _cellColors.length]
-                        .withOpacity(1),
+            color: _isLocked
+                ? Colors.white12
+                : completed
+                    ? _accent
+                    : _accent.withOpacity(0.4),
             width: completed ? 2 : 1.5,
           ),
-          boxShadow: completed
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFFFD700).withOpacity(0.6),
-                    blurRadius: 16,
-                    spreadRadius: 3,
-                  )
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(_isLocked ? 0.03 : 0.07),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  )
-                ],
+          boxShadow: _isLocked
+              ? []
+              : completed
+                  ? [
+                      BoxShadow(
+                        color: _accent.withOpacity(0.55),
+                        blurRadius: 18,
+                        spreadRadius: 3,
+                      ),
+                      BoxShadow(
+                        color: _accent.withOpacity(0.25),
+                        blurRadius: 40,
+                        spreadRadius: 6,
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: _accent.withOpacity(0.12),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // 楽器絵文字
             AnimatedOpacity(
-              opacity: _isLocked ? 0.25 : 1.0,
-              duration: const Duration(milliseconds: 400),
+              opacity: _isLocked ? 0.18 : 1.0,
+              duration: 400.ms,
               child: Text(
-                _instrumentEmoji,
+                _instrumentEmojis[cellIndex % _instrumentEmojis.length],
                 style: const TextStyle(fontSize: 22),
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
+            // 楽器名（完了時）またはラベル
             AnimatedOpacity(
-              opacity: _isLocked ? 0.25 : 1.0,
-              duration: const Duration(milliseconds: 400),
+              opacity: _isLocked ? 0.18 : 1.0,
+              duration: 400.ms,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: Text(
-                  label,
+                  completed
+                      ? _instrumentNames[cellIndex % _instrumentNames.length]
+                      : label,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.bold,
-                    color: completed
-                        ? const Color(0xFF5D4037)
-                        : const Color(0xFF4A4A6A),
+                    color: completed ? _accent : Colors.white70,
                     height: 1.2,
+                    letterSpacing: 0.2,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
@@ -117,31 +147,32 @@ class ResonanceCell extends StatelessWidget {
                 ),
               ),
             ),
+            // 完了時：♪ネオン発光
             if (completed) ...[
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 '♪',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF5D4037),
+                  fontSize: 12,
+                  color: _accent,
                   fontWeight: FontWeight.bold,
                 ),
               )
                   .animate(onPlay: (c) => c.repeat(reverse: true))
-                  .shimmer(duration: 1000.ms, color: Colors.white)
-                  .scaleXY(end: 1.2, duration: 500.ms),
+                  .shimmer(duration: 900.ms, color: Colors.white)
+                  .scaleXY(end: 1.25, duration: 450.ms),
             ],
           ],
         ),
       ),
     );
 
-    // 波紋展開アニメーション（ロック解除時）
+    // 波紋展開アニメーション
     if (!_isLocked) {
       cell = cell
           .animate()
           .slideY(
-            begin: 0.25,
+            begin: 0.2,
             end: 0,
             delay: Duration(milliseconds: waveDelayMs),
             duration: 500.ms,
@@ -155,19 +186,4 @@ class ResonanceCell extends StatelessWidget {
 
     return cell;
   }
-
-  // 楽器絵文字（AudioMixerService.trackNames と対応）
-  static const List<String> _instrumentEmojis = [
-    '🎹', // ピアノ
-    '🎻', // チェロ
-    '🎵', // フルート
-    '🎸', // バイオリン（代替）
-    '🥁', // ドラム
-    '🎺', // トランペット
-    '🎸', // ギター
-    '🎼', // マリンバ（代替）
-  ];
-
-  String get _instrumentEmoji =>
-      _instrumentEmojis[cellIndex % _instrumentEmojis.length];
 }

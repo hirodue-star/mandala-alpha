@@ -5,7 +5,7 @@ import 'screens/login_screen.dart';
 import 'screens/resonance_screen.dart';
 
 // [DEBUG] 0=login, 1=resonance(locked), 2=resonance(stage4), 3=resonance(stage8)
-const int kDebugMode = 0; // 0=本番(login), 1=resonance, 2=stage4, 3=stage8
+const int kDebugMode = 0; // 0=本番(login), 1=resonance, 2=stage4, 3=stage8 // 0=本番(login), 1=resonance, 2=stage4, 3=stage8
 
 void main() {
   runApp(ProviderScope(

@@ -16,16 +16,24 @@ import '../widgets/resonance_cell.dart';
 //   [5, 4, 3]
 // ─────────────────────────────────────────────────────────
 
-class ResonanceScreen extends ConsumerWidget {
+class ResonanceScreen extends ConsumerStatefulWidget {
   const ResonanceScreen({super.key});
 
-  static const List<int?> _gridMap = [7, 0, 1, 6, null, 2, 5, 4, 3];
+  @override
+  ConsumerState<ResonanceScreen> createState() => _ResonanceScreenState();
+}
 
-  // 波紋遅延（cellIndex 0〜7）
+class _ResonanceScreenState extends ConsumerState<ResonanceScreen> {
+  static const List<int?> _gridMap = [7, 0, 1, 6, null, 2, 5, 4, 3];
   static const List<int> _waveDelay = [0, 100, 200, 300, 200, 100, 0, 100];
 
+  // Squashトリガー：セル完了のたびにインクリメント
+  int _squashTrigger = 0;
+
+  void _triggerSquash() => setState(() => _squashTrigger++);
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(mandalaProvider);
     final notifier = ref.read(mandalaProvider.notifier);
 
@@ -41,7 +49,7 @@ class ResonanceScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A0533),
+      backgroundColor: const Color(0xFF050D1A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -96,9 +104,9 @@ class ResonanceScreen extends ConsumerWidget {
                       itemBuilder: (context, gridIndex) {
                         final cellIndex = _gridMap[gridIndex];
                         if (cellIndex == null) {
-                          // 中央：たまご
                           return _CenterEggCell(
                             state: state,
+                            squashTrigger: _squashTrigger,
                             onTap: () => _onCenterTap(context, state, notifier),
                           );
                         }
@@ -303,7 +311,10 @@ class ResonanceScreen extends ConsumerWidget {
             onPressed: () {
               notifier
                   .completeCell(cellIndex, label: ctrl.text.trim())
-                  .then((_) => HapticFeedback.heavyImpact());
+                  .then((_) {
+                HapticFeedback.heavyImpact();
+                _triggerSquash();
+              });
               Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
@@ -351,8 +362,13 @@ class ResonanceScreen extends ConsumerWidget {
 
 class _CenterEggCell extends StatelessWidget {
   final MandalaState state;
+  final int squashTrigger;
   final VoidCallback onTap;
-  const _CenterEggCell({required this.state, required this.onTap});
+  const _CenterEggCell({
+    required this.state,
+    required this.squashTrigger,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -387,7 +403,8 @@ class _CenterEggCell extends StatelessWidget {
           child: EggWidget(
             stage: state.eggStage,
             phase: state.phase,
-            onTap: null, // GestureDetector の onTap で処理
+            squashTrigger: squashTrigger,
+            onTap: null,
           ),
         ),
       ),
@@ -532,11 +549,11 @@ class _StarBackground extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             Color.lerp(
-              const Color(0xFF1A0533),
-              const Color(0xFF3D1177),
+              const Color(0xFF050D1A),  // Dark Navy
+              const Color(0xFF0A1F3D),  // Midnight Blue（完了につれ明るく）
               doneCount / 8,
             )!,
-            const Color(0xFF0D0020),
+            const Color(0xFF020810),
           ],
         ),
       ),
