@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/gacha_collection.dart';
 import '../providers/gacha_providers.dart';
+import '../widgets/gacha_fx.dart';
 
 // ─────────────────────────────────────────────────────────
 // GachaScreen — びっくらポン・ガチャ & コレクション
@@ -88,6 +89,9 @@ class _GachaScreenState extends ConsumerState<GachaScreen> {
               )),
             ],
           ),
+          // ゴールデンパーティクル演出
+          if (_showResult && _result != null)
+            GoldenParticleSystem(active: true, rarity: _result!.rarity),
           // ガチャ結果オーバーレイ
           if (_showResult && _result != null)
             _GachaResultOverlay(item: _result!),
@@ -111,50 +115,73 @@ class _GachaMachine extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // マシン本体
-          Container(
+          // マシン本体（マテリアルシェーダー付き）
+          SizedBox(
             width: 180, height: 200,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFCC80), Color(0xFFFF8A65)],
-                begin: Alignment.topCenter, end: Alignment.bottomCenter),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [BoxShadow(color: const Color(0xFFFF8A65).withOpacity(0.3),
-                  blurRadius: 20, offset: const Offset(0, 8))],
-            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // 球体の窓
+                // 金属ベース
+                CustomPaint(
+                  size: const Size(180, 200),
+                  painter: MaterialShaderPainter(
+                    material: GachaMaterial.metal,
+                    animValue: spinning ? 0.5 : 0.3,
+                  ),
+                ),
+                // 樹脂オーバーレイ
+                Container(
+                  width: 180, height: 200,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [BoxShadow(color: const Color(0xFFFFB74D).withOpacity(0.3),
+                        blurRadius: 20, offset: const Offset(0, 8))],
+                  ),
+                ),
+                // アクリル球体の窓
                 Positioned(
                   top: 20,
-                  child: Container(
+                  child: SizedBox(
                     width: 120, height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.3),
-                      border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
-                    ),
-                    child: Center(
-                      child: spinning
-                          ? const Text('❓', style: TextStyle(fontSize: 50))
-                              .animate(onPlay: (c) => c.repeat())
-                              .rotate(duration: 300.ms)
-                              .scaleXY(begin: 0.8, end: 1.2, duration: 300.ms)
-                          : const Text('🎁', style: TextStyle(fontSize: 50))
-                              .animate(onPlay: (c) => c.repeat(reverse: true))
-                              .scaleXY(end: 1.1, duration: 1200.ms),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CustomPaint(
+                          size: const Size(120, 120),
+                          painter: MaterialShaderPainter(
+                            material: GachaMaterial.acrylic,
+                            animValue: spinning ? 0.8 : 0.4,
+                          ),
+                        ),
+                        Container(
+                          width: 120, height: 120,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
+                          ),
+                        ),
+                        Center(
+                          child: spinning
+                              ? const Text('❓', style: TextStyle(fontSize: 50))
+                                  .animate(onPlay: (c) => c.repeat())
+                                  .rotate(duration: 300.ms)
+                                  .scaleXY(begin: 0.8, end: 1.2, duration: 300.ms)
+                              : const Text('🎁', style: TextStyle(fontSize: 50))
+                                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                                  .scaleXY(end: 1.1, duration: 1200.ms),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                // 出口
+                // 樹脂の出口
                 Positioned(
                   bottom: 10,
-                  child: Container(
+                  child: SizedBox(
                     width: 50, height: 25,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF5D4037),
-                      borderRadius: BorderRadius.circular(12),
+                    child: CustomPaint(
+                      size: const Size(50, 25),
+                      painter: MaterialShaderPainter(material: GachaMaterial.resin),
                     ),
                   ),
                 ),
@@ -287,26 +314,24 @@ class _CollectionGrid extends StatelessWidget {
                 final isEquipped = equipped == c.id;
                 return GestureDetector(
                   onTap: isOwned ? () => onEquip(c.id) : null,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isOwned ? Colors.white : const Color(0xFFF0EBE0),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isEquipped ? const Color(0xFFE91E63)
-                            : isOwned ? const Color(0xFFFFCC80) : const Color(0xFFE0D8CE),
-                        width: isEquipped ? 2.5 : 1),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(isOwned ? c.emoji : '❓',
-                            style: TextStyle(fontSize: 24, color: isOwned ? null : const Color(0xFFD0C8B8))),
-                        if (isOwned)
-                          Text(c.name, style: const TextStyle(fontSize: 7, color: Color(0xFF7A6A5A))),
-                        if (isEquipped)
-                          const Text('♥', style: TextStyle(fontSize: 8, color: Color(0xFFE91E63))),
-                      ],
-                    ),
+                  child: Stack(
+                    children: [
+                      Item3DCard(
+                        emoji: c.emoji,
+                        name: c.name,
+                        rarity: c.rarity,
+                        owned: isOwned,
+                      ),
+                      if (isEquipped)
+                        Positioned(top: 2, right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE91E63), shape: BoxShape.circle),
+                            child: const Text('♥', style: TextStyle(fontSize: 8, color: Colors.white)),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },

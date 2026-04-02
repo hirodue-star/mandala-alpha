@@ -1,0 +1,165 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'learning_log_service.dart';
+
+// ─────────────────────────────────────────────────────────
+// PortfolioService — 自動ポートフォリオ(受験用レポート)生成
+//
+// PDF生成は外部パッケージなしで実現するため、
+// HTML→テキスト形式のレポートをファイル出力。
+// 将来的にpdf パッケージ追加時にPDF化可能。
+// ─────────────────────────────────────────────────────────
+
+class PortfolioReport {
+  final DateTime from;
+  final DateTime to;
+  final String childName;
+  final int totalSessions;
+  final double avgMeta;
+  final double avgFocus;
+  final double avgLogic;
+  final int freeInputCount;
+  final List<String> topGoals;
+  final List<String> topAnswers;
+  final String evaluationGrade;     // A/B/C/D
+  final String evaluationComment;
+  final String filePath;
+
+  const PortfolioReport({
+    required this.from, required this.to, required this.childName,
+    required this.totalSessions, required this.avgMeta, required this.avgFocus,
+    required this.avgLogic, required this.freeInputCount, required this.topGoals,
+    required this.topAnswers, required this.evaluationGrade,
+    required this.evaluationComment, required this.filePath,
+  });
+}
+
+class PortfolioService {
+  PortfolioService._();
+
+  /// 期間指定でポートフォリオレポートを生成
+  static Future<PortfolioReport> generate({
+    required String childName,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final allLogs = await LearningLogService.loadAll();
+    final filtered = allLogs.where((s) =>
+        s.date.isAfter(from.subtract(const Duration(days: 1))) &&
+        s.date.isBefore(to.add(const Duration(days: 1)))).toList();
+
+    final totalSessions = filtered.length;
+    final avgMeta = _avg(filtered.map((s) => s.metacognitionScore));
+    final avgFocus = _avg(filtered.map((s) => s.focusScore));
+    final avgLogic = _avg(filtered.map((s) => s.logicalThinkingScore));
+    final freeInputCount = filtered.where((s) => s.isFreeInput).length;
+
+    // トップゴール・回答
+    final goalCounts = <String, int>{};
+    final allAnswers = <String>[];
+    for (final s in filtered) {
+      goalCounts[s.goal] = (goalCounts[s.goal] ?? 0) + 1;
+      allAnswers.addAll(s.events.map((e) => e.enteredLabel).where((l) => l.isNotEmpty));
+    }
+    final topGoals = (goalCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+        .take(5).map((e) => e.key).toList();
+    final topAnswers = allAnswers.toSet().take(10).toList();
+
+    // 受験評価基準
+    final totalScore = (avgMeta + avgFocus + avgLogic) / 3;
+    final grade = totalScore >= 0.75 ? 'A' : totalScore >= 0.5 ? 'B' : totalScore >= 0.3 ? 'C' : 'D';
+    final comment = _evaluationComment(grade, totalSessions, freeInputCount);
+
+    // ファイル出力
+    final dir = await getApplicationDocumentsDirectory();
+    final fileName = 'portfolio_${from.month}${from.day}_${to.month}${to.day}.txt';
+    final file = File('${dir.path}/$fileName');
+    final content = _buildReport(
+      childName: childName, from: from, to: to,
+      totalSessions: totalSessions, avgMeta: avgMeta, avgFocus: avgFocus,
+      avgLogic: avgLogic, freeInputCount: freeInputCount,
+      topGoals: topGoals, topAnswers: topAnswers,
+      grade: grade, comment: comment,
+    );
+    await file.writeAsString(content);
+
+    return PortfolioReport(
+      from: from, to: to, childName: childName,
+      totalSessions: totalSessions, avgMeta: avgMeta, avgFocus: avgFocus,
+      avgLogic: avgLogic, freeInputCount: freeInputCount,
+      topGoals: topGoals, topAnswers: topAnswers,
+      evaluationGrade: grade, evaluationComment: comment,
+      filePath: file.path,
+    );
+  }
+
+  static String _buildReport({
+    required String childName, required DateTime from, required DateTime to,
+    required int totalSessions, required double avgMeta, required double avgFocus,
+    required double avgLogic, required int freeInputCount,
+    required List<String> topGoals, required List<String> topAnswers,
+    required String grade, required String comment,
+  }) {
+    final fromStr = '${from.year}/${from.month}/${from.day}';
+    final toStr = '${to.year}/${to.month}/${to.day}';
+    return '''
+════════════════════════════════════════════════
+  マンダラα ポートフォリオレポート
+  ─ 私立小学校受験 非認知能力評価 ─
+════════════════════════════════════════════════
+
+■ 基本情報
+  お名前: $childName
+  期間: $fromStr 〜 $toStr
+  総セッション数: $totalSessions 回
+  自由記述(ライオン級): $freeInputCount 回
+
+■ 非認知能力スコア（3指標平均）
+
+  メタ認知力:   ${(avgMeta * 100).toInt()}%  ── 自分の考えを客観視する力
+  集中持続力:   ${(avgFocus * 100).toInt()}%  ── 継続して取り組む力
+  論理的思考力: ${(avgLogic * 100).toInt()}%  ── 系統的に考える力
+
+■ 総合評価: [$grade]
+
+  $comment
+
+■ よく取り組んだテーマ（上位5つ）
+${topGoals.asMap().entries.map((e) => '  ${e.key + 1}. ${e.value}').join('\n')}
+
+■ 特徴的な回答（キラリ語録）
+${topAnswers.map((a) => '  ・$a').join('\n')}
+
+■ 評価基準について
+  本レポートは「Nine Matrix Method™」に基づく非認知能力の
+  定量評価です。以下の学術研究を参考にしています:
+  - Flavell (1979): メタ認知能力と学習効果
+  - Diamond (2013): 3-6歳の実行機能発達
+  - 9マス思考メソッド: 目標分解と構造化思考
+
+════════════════════════════════════════════════
+  Generated by マンダラα — ${DateTime.now().year}
+════════════════════════════════════════════════
+''';
+  }
+
+  static String _evaluationComment(String grade, int sessions, int freeInput) {
+    return switch (grade) {
+      'A' => '優秀です。メタ認知力・集中力・論理的思考の3指標がバランスよく高い水準にあります。'
+              '自由記述にも積極的に取り組んでおり、私立小学校の面接・行動観察においても'
+              '自分の考えを論理的に表現できる力が身についています。',
+      'B' => '順調に成長しています。特に継続的な取り組み姿勢が評価できます。'
+              '${sessions}回のセッションを通じて思考の幅が広がっており、'
+              '今後は自由記述(ライオン級)にさらに挑戦することで一段階上の力が身につきます。',
+      'C' => '基礎的な思考力が育っています。楽しみながら取り組めている点が良いです。'
+              'まずはひよこ級・ペンギン級で自信をつけ、徐々にライオン級に挑戦しましょう。',
+      _ =>  '取り組みを始めたばかりの段階です。焦らず、日々のルーティンとして'
+            '楽しく続けることが最も大切です。お子さまのペースを尊重しましょう。',
+    };
+  }
+
+  static double _avg(Iterable<double> values) {
+    if (values.isEmpty) return 0;
+    return values.reduce((a, b) => a + b) / values.length;
+  }
+}

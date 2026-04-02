@@ -15,8 +15,14 @@ class MandalaNotifier extends StateNotifier<MandalaState> {
 
   void activate(String goal) {
     if (goal.trim().isEmpty) return;
-    final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
-    final labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
+    List<String> labels;
+    if (state.ageMode.isFreeInputMode) {
+      // ライオン級: 自動候補なし（思考力育成モード）
+      labels = state.labels;
+    } else {
+      final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
+      labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
+    }
     state = state.copyWith(
       goal: goal.trim(),
       labels: labels,
@@ -27,10 +33,14 @@ class MandalaNotifier extends StateNotifier<MandalaState> {
 
   void updateGoal(String goal) {
     if (goal.trim().isEmpty) return;
-    // Observer: ゴール変更 → 未完了セルのラベルを自動書き換え
-    final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
-    final labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
-    state = state.copyWith(goal: goal.trim(), labels: labels);
+    if (state.ageMode.isFreeInputMode) {
+      // ライオン級: ゴール変更してもラベルは自動書き換えしない
+      state = state.copyWith(goal: goal.trim());
+    } else {
+      final suggestions = SuggestionService.getLocalSuggestions(goal.trim());
+      final labels = _mergeLabels(state.labels, suggestions, state.activeCellCount);
+      state = state.copyWith(goal: goal.trim(), labels: labels);
+    }
   }
 
   /// 完了済みセルのラベルは保持し、未完了セルだけAI候補で上書き

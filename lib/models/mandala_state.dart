@@ -6,14 +6,15 @@ import 'activity_log.dart';
 // ─────────────────────────────────────────────────────────
 
 enum AgeMode {
-  age3, // 4マス（中心1＋周囲3）語彙「発見」
-  age4, // 6マス（中心1＋周囲5）関連性「連結」
-  age5, // 9マス（中心1＋周囲8）論理的「分類」
+  age3, // ひよこ級：4マス（中心1＋周囲3）語彙「発見」
+  age4, // ペンギン級：6マス（中心1＋周囲5）関連性「連結」
+  age5, // ライオン級：9マス（中心1＋周囲8）論理的「分類」＋思考力育成モード
 }
 
 extension AgeModeExt on AgeMode {
   int get activeCells => switch (this) { AgeMode.age3 => 3, AgeMode.age4 => 5, AgeMode.age5 => 8 };
-  String get label => switch (this) { AgeMode.age3 => '3さい', AgeMode.age4 => '4さい', AgeMode.age5 => '5さい' };
+  String get label => switch (this) { AgeMode.age3 => 'ひよこ', AgeMode.age4 => 'ペンギン', AgeMode.age5 => 'ライオン' };
+  String get emoji => switch (this) { AgeMode.age3 => '🐤', AgeMode.age4 => '🐧', AgeMode.age5 => '🦁' };
   String get centerLabel => switch (this) {
     AgeMode.age3 => 'きょうの だいすき',
     AgeMode.age4 => 'きょうの すき',
@@ -22,8 +23,10 @@ extension AgeModeExt on AgeMode {
   String get coachingPrompt => switch (this) {
     AgeMode.age3 => 'の どんなところが すき？',
     AgeMode.age4 => 'について おしえて！',
-    AgeMode.age5 => 'に ついて かんがえよう！',
+    AgeMode.age5 => 'を じぶんで かんがえて うめてみよう！',
   };
+  /// ライオン級は思考力育成モード（自由記述）
+  bool get isFreeInputMode => this == AgeMode.age5;
 
   // gridMap: null=center(puppy), -1=empty slot, 0〜7=action cell index
   List<int?> get gridMap => switch (this) {

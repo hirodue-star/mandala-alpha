@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/mandala_state.dart';
 import '../services/suggestion_service.dart';
 import 'mandala_providers.dart';
 
@@ -8,6 +9,8 @@ import 'mandala_providers.dart';
 final suggestionsProvider = Provider<List<String>>((ref) {
   final state = ref.watch(mandalaProvider);
   if (state.goal.isEmpty) return [];
+  // ライオン級（思考力育成モード）: 自動候補なし → 自分で考えて埋める
+  if (state.ageMode.isFreeInputMode) return [];
   return SuggestionService.getLocalSuggestions(state.goal);
 });
 

@@ -7,6 +7,10 @@ import '../providers/context_providers.dart';
 import '../providers/character_providers.dart';
 import '../models/mandala_state.dart';
 import '../l10n/strings.dart';
+import '../services/learning_log_service.dart';
+import '../services/thinking_framework_service.dart';
+import 'community_screen.dart';
+import 'parent_efficiency_screen.dart';
 
 // ─────────────────────────────────────────────────────────
 // ParentDashboardScreen — 保護者用 知育レポート
@@ -67,8 +71,88 @@ class ParentDashboardScreen extends ConsumerWidget {
             if (state.logs.isNotEmpty) _CompletionLog(state: state),
             const SizedBox(height: 16),
 
+            // 成長の見える化（学習ログ）
+            const _GrowthTracker(),
+            const SizedBox(height: 16),
+
+            // ライオン級 思考力評価（現セッション）
+            if (state.ageMode == AgeMode.age5)
+              _ThinkingAssessmentCard(state: state),
+            if (state.ageMode == AgeMode.age5)
+              const SizedBox(height: 16),
+
+            // 学習履歴
+            const _LearningHistory(),
+            const SizedBox(height: 16),
+
             // キャラクター興味分析
             _InterestAnalysis(ref: ref),
+            const SizedBox(height: 16),
+
+            // ⚡親タイパMAXボタン
+            GestureDetector(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ParentEfficiencyScreen())),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    const Color(0xFF69F0AE).withOpacity(0.15),
+                    const Color(0xFFFFB74D).withOpacity(0.1),
+                  ]),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF69F0AE).withOpacity(0.3)),
+                ),
+                child: const Row(children: [
+                  Text('⚡', style: TextStyle(fontSize: 22)),
+                  SizedBox(width: 10),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('親タイパMAX',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('成長ニュース・声かけ・ポートフォリオ・ウィジェット',
+                          style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    ],
+                  )),
+                  Icon(Icons.arrow_forward_ios, color: Colors.white30, size: 16),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // コミュニティ参加ボタン
+            GestureDetector(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const CommunityScreen())),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    const Color(0xFF7C4DFF).withOpacity(0.2),
+                    const Color(0xFFFFB74D).withOpacity(0.1),
+                  ]),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.3)),
+                ),
+                child: const Row(children: [
+                  Text('💬', style: TextStyle(fontSize: 22)),
+                  SizedBox(width: 10),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('コミュニティ',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('改善提案・投票・お知らせ',
+                          style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    ],
+                  )),
+                  Icon(Icons.arrow_forward_ios, color: Colors.white30, size: 16),
+                ]),
+              ),
+            ),
             const SizedBox(height: 16),
 
             // 学術的根拠セクション
@@ -553,6 +637,444 @@ class _ParentTopicCard extends StatefulWidget {
   State<_ParentTopicCard> createState() => _ParentTopicCardState();
 }
 
+// ─── ライオン級 思考力評価 ────────────────────────────────
+
+class _ThinkingAssessmentCard extends StatelessWidget {
+  final MandalaState state;
+  const _ThinkingAssessmentCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final answers = List.generate(8, (i) =>
+        state.completed[i] ? state.labels[i] : '');
+    final assessment = ThinkingFrameworkService.assess(answers);
+    final frames = ThinkingFrameworkService.getFrames(state.goal);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2A1E00), Color(0xFF1A0A3D)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.5), width: 1.5),
+        boxShadow: [BoxShadow(
+          color: const Color(0xFFFFB74D).withOpacity(0.15),
+          blurRadius: 20, spreadRadius: 2,
+        )],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Text('🦁', style: TextStyle(fontSize: 22)),
+            SizedBox(width: 8),
+            Text('思考力育成モード — 評価',
+                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900)),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            'Life Strategy Engine 準拠・構造化思考フレームワーク',
+            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+          ),
+          const SizedBox(height: 14),
+
+          // 受験準備スコア
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(children: [
+              Text(
+                '${assessment.examReadyScore}',
+                style: const TextStyle(
+                  color: Color(0xFFFFD740), fontSize: 36, fontWeight: FontWeight.w900),
+              ),
+              const Text('受験準備スコア',
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+              const SizedBox(height: 4),
+              Text(assessment.examReadyLabel,
+                  style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 11),
+                  textAlign: TextAlign.center),
+            ]),
+          ),
+          const SizedBox(height: 12),
+
+          // 3レイヤー進捗
+          _LayerProgress(
+            emoji: '🔍', label: 'かんさつ（分析）',
+            count: assessment.analysisCount, total: 3,
+            color: const Color(0xFFFF9800),
+          ),
+          const SizedBox(height: 6),
+          _LayerProgress(
+            emoji: '💭', label: 'かんがえる（推論）',
+            count: assessment.reasoningCount, total: 3,
+            color: const Color(0xFF03A9F4),
+          ),
+          const SizedBox(height: 6),
+          _LayerProgress(
+            emoji: '🌟', label: 'きめる（意思決定）',
+            count: assessment.decisionCount, total: 2,
+            color: const Color(0xFF4CAF50),
+          ),
+          const SizedBox(height: 12),
+
+          // 各セルの回答状況
+          if (state.doneCount > 0) ...[
+            const Text('回答内容',
+                style: TextStyle(color: Colors.white54, fontSize: 11)),
+            const SizedBox(height: 6),
+            ...frames.where((f) => state.completed[f.cellIndex]).map((f) =>
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(children: [
+                  Text(f.emoji, style: const TextStyle(fontSize: 14)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      state.labels[f.cellIndex],
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(f.parentLabel,
+                      style: const TextStyle(color: Colors.white30, fontSize: 9)),
+                ]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ).animate().fadeIn(delay: 100.ms, duration: 500.ms);
+  }
+}
+
+class _LayerProgress extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final int count;
+  final int total;
+  final Color color;
+  const _LayerProgress({
+    required this.emoji, required this.label,
+    required this.count, required this.total, required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Text(emoji, style: const TextStyle(fontSize: 14)),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+      ),
+      SizedBox(
+        width: 60,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: total > 0 ? count / total : 0,
+            minHeight: 6,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
+      ),
+      const SizedBox(width: 6),
+      Text('$count/$total',
+          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+    ]);
+  }
+}
+
+// ─── 成長の見える化 ─────────────────────────────────────
+
+class _GrowthTracker extends StatefulWidget {
+  const _GrowthTracker();
+  @override
+  State<_GrowthTracker> createState() => _GrowthTrackerState();
+}
+
+class _GrowthTrackerState extends State<_GrowthTracker> {
+  WeeklyGrowthSummary? _summary;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = await LearningLogService.weeklyGrowth();
+    if (mounted) setState(() => _summary = s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D2818), Color(0xFF0A1A3D)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF69F0AE).withOpacity(0.5), width: 1.5),
+        boxShadow: [BoxShadow(
+          color: const Color(0xFF69F0AE).withOpacity(0.15),
+          blurRadius: 20, spreadRadius: 2,
+        )],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Text('📈', style: TextStyle(fontSize: 20)),
+            SizedBox(width: 8),
+            Text('成長の見える化',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+          ]),
+          const SizedBox(height: 4),
+          const Text(
+            '私立小受験レベルの思考力向上を可視化',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 14),
+          if (_summary == null)
+            const Center(child: CircularProgressIndicator(color: Color(0xFF69F0AE), strokeWidth: 2))
+          else ...[
+            // 今週のセッション数
+            _GrowthRow(
+              icon: '🎯',
+              label: '今週の取り組み',
+              value: '${_summary!.thisWeekSessions}回',
+              delta: _summary!.sessionsDelta,
+              unit: '回',
+            ),
+            const SizedBox(height: 10),
+            _GrowthRow(
+              icon: '🔍',
+              label: 'メタ認知力',
+              value: '${(_summary!.thisWeekAvgMeta * 100).toInt()}%',
+              delta: (_summary!.metaDelta * 100).round(),
+              unit: 'pt',
+            ),
+            const SizedBox(height: 10),
+            _GrowthRow(
+              icon: '⚡',
+              label: '集中力',
+              value: '${(_summary!.thisWeekAvgFocus * 100).toInt()}%',
+              delta: (_summary!.focusDelta * 100).round(),
+              unit: 'pt',
+            ),
+            const SizedBox(height: 10),
+            _GrowthRow(
+              icon: '🔗',
+              label: '論理的思考',
+              value: '${(_summary!.thisWeekAvgLogic * 100).toInt()}%',
+              delta: (_summary!.logicDelta * 100).round(),
+              unit: 'pt',
+            ),
+            if (_summary!.freeInputCount > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFB74D).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(children: [
+                  const Text('🦁', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'ライオン級（思考力育成モード）${_summary!.freeInputCount}回達成！自分で考える力が育っています。',
+                      style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 11),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                const Text('🏆', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Text(
+                  '累計 ${_summary!.totalSessions} セッション完了',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ]),
+            ),
+          ],
+        ],
+      ),
+    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1, duration: 500.ms);
+  }
+}
+
+class _GrowthRow extends StatelessWidget {
+  final String icon;
+  final String label;
+  final String value;
+  final int delta;
+  final String unit;
+  const _GrowthRow({
+    required this.icon, required this.label, required this.value,
+    required this.delta, required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUp = delta > 0;
+    final isDown = delta < 0;
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12))),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 8),
+        if (delta != 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (isUp ? const Color(0xFF69F0AE) : const Color(0xFFFF5252)).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${isUp ? '+' : ''}$delta$unit',
+              style: TextStyle(
+                color: isUp ? const Color(0xFF69F0AE) : const Color(0xFFFF5252),
+                fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          )
+        else
+          const Text('—', style: TextStyle(color: Colors.white24, fontSize: 10)),
+      ],
+    );
+  }
+}
+
+// ─── 学習履歴（直近セッション一覧） ─────────────────────
+
+class _LearningHistory extends StatefulWidget {
+  const _LearningHistory();
+  @override
+  State<_LearningHistory> createState() => _LearningHistoryState();
+}
+
+class _LearningHistoryState extends State<_LearningHistory> {
+  List<LearningSession>? _sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = await LearningLogService.loadRecent(days: 14);
+    if (mounted) setState(() => _sessions = s.reversed.toList());
+  }
+
+  static const _levelEmojis = {'age3': '🐤', 'age4': '🐧', 'age5': '🦁'};
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Text('📋', style: TextStyle(fontSize: 18)),
+            SizedBox(width: 8),
+            Text('学習履歴',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 4),
+          const Text('直近2週間のセッション', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const SizedBox(height: 10),
+          if (_sessions == null)
+            const Center(child: CircularProgressIndicator(color: Colors.white24, strokeWidth: 2))
+          else if (_sessions!.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: Text('まだ記録がありません',
+                  style: TextStyle(color: Colors.white30, fontSize: 12))),
+            )
+          else
+            ...(_sessions!.take(10).map((s) {
+              final emoji = _levelEmojis[s.ageMode] ?? '🐤';
+              final dateStr = '${s.date.month}/${s.date.day} ${s.date.hour}:${s.date.minute.toString().padLeft(2, '0')}';
+              final score = ((s.metacognitionScore + s.focusScore + s.logicalThinkingScore) / 3 * 100).toInt();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Text(emoji, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.goal,
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text('$dateStr ・ ${s.completedCells}/${s.totalCells}マス ・ Lv.${s.stage}',
+                              style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _scoreColor(score).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$score点',
+                        style: TextStyle(color: _scoreColor(score), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (s.isFreeInput) ...[
+                      const SizedBox(width: 4),
+                      const Text('🦁', style: TextStyle(fontSize: 12)),
+                    ],
+                  ],
+                ),
+              );
+            })),
+        ],
+      ),
+    ).animate().fadeIn(delay: 200.ms, duration: 500.ms);
+  }
+
+  Color _scoreColor(int score) {
+    if (score >= 70) return const Color(0xFF69F0AE);
+    if (score >= 40) return const Color(0xFFFFD740);
+    return const Color(0xFFFF5252);
+  }
+}
+
+// ─── 今日のトピック入力 ──────────────────────────────────
+
 class _ParentTopicCardState extends State<_ParentTopicCard> {
   late final TextEditingController _ctrl;
 
@@ -589,7 +1111,7 @@ class _ParentTopicCardState extends State<_ParentTopicCard> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'プピィが子供に話しかける内容に反映されます',
+            'キャラクターが子供に話しかける内容に反映されます',
             style: TextStyle(color: Colors.white38, fontSize: 11),
           ),
           const SizedBox(height: 10),
@@ -630,11 +1152,11 @@ class _ParentTopicCardState extends State<_ParentTopicCard> {
               ),
               child: Row(
                 children: [
-                  const Text('🐰', style: TextStyle(fontSize: 14)),
+                  Text(widget.ref.watch(characterProvider).def.emoji, style: const TextStyle(fontSize: 14)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'プピィ: 「きょうは「$current」だって！たのしみだね！」',
+                      '${widget.ref.watch(characterProvider).def.name}: 「きょうは「$current」だって！たのしみだね！」',
                       style: const TextStyle(color: Color(0xFFFFB74D), fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                   ),
